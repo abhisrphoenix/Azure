@@ -1,0 +1,347 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory Name",
+            "defaultValue": "abadfv2"
+        },
+        "AzureStorage1_connectionString": {
+            "type": "string",
+            "metadata": "Secure string for 'connectionString' of 'AzureStorage1'"
+        },
+        "AzureSqlDatabaseLinkedService_connectionString": {
+            "type": "string",
+            "metadata": "Secure string for 'connectionString' of 'AzureSqlDatabaseLinkedService'"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]",
+        "leftBracket": "["
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/CopyPipeline')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "CopyFromBlobToBlob",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30
+                        },
+                        "typeProperties": {
+                            "source": {
+                                "type": "BlobSource",
+                                "recursive": true
+                            },
+                            "sink": {
+                                "type": "BlobSink"
+                            },
+                            "enableStaging": false,
+                            "cloudDataMovementUnits": 0
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "InputDataset",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "OutputDataset",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ]
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/InputDataset')]",
+                "[concat(variables('factoryId'), '/datasets/OutputDataset')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/InputDataset')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "AzureStorage1",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "AzureBlob",
+                "structure": [
+                    {
+                        "name": "zipcode",
+                        "type": "Int32"
+                    },
+                    {
+                        "name": "place",
+                        "type": "String"
+                    },
+                    {
+                        "name": "state",
+                        "type": "String"
+                    },
+                    {
+                        "name": "state_abbr",
+                        "type": "String"
+                    },
+                    {
+                        "name": "county"
+                    },
+                    {
+                        "name": "lat",
+                        "type": "Double"
+                    },
+                    {
+                        "name": "long",
+                        "type": "Double"
+                    }
+                ],
+                "typeProperties": {
+                    "format": {
+                        "type": "TextFormat",
+                        "columnDelimiter": ",",
+                        "rowDelimiter": "",
+                        "treatEmptyAsNull": true,
+                        "firstRowAsHeader": true
+                    },
+                    "fileName": "us_postal_codes.csv",
+                    "folderPath": "abcontainer"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureStorage1')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/OutputDataset')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "AzureStorage1",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "AzureBlob",
+                "structure": [
+                    {
+                        "name": "zip",
+                        "type": "Int32"
+                    },
+                    {
+                        "name": "name",
+                        "type": "String"
+                    },
+                    {
+                        "name": "state",
+                        "type": "String"
+                    },
+                    {
+                        "name": "state_abbr",
+                        "type": "String"
+                    },
+                    {
+                        "name": "county",
+                        "type": "String"
+                    },
+                    {
+                        "name": "lat",
+                        "type": "Double"
+                    },
+                    {
+                        "name": "long",
+                        "type": "Double"
+                    }
+                ],
+                "typeProperties": {
+                    "format": {
+                        "type": "TextFormat",
+                        "columnDelimiter": "|",
+                        "rowDelimiter": "",
+                        "nullValue": "\\N",
+                        "treatEmptyAsNull": true,
+                        "firstRowAsHeader": false
+                    },
+                    "fileName": "@CONCAT(pipeline().RunId, '.txt')",
+                    "folderPath": "outputcontainer/output"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureStorage1')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureStorage1')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "type": "AzureStorage",
+                "typeProperties": {
+                    "connectionString": {
+                        "type": "SecureString",
+                        "value": "[parameters('AzureStorage1_connectionString')]"
+                    }
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/PipeLineTrigger1')]",
+            "type": "Microsoft.DataFactory/factories/triggers",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "runtimeState": "Stopped",
+                "pipelines": [
+                    {
+                        "pipelineReference": {
+                            "referenceName": "CopyPipeline",
+                            "type": "PipelineReference"
+                        },
+                        "parameters": {}
+                    }
+                ],
+                "type": "ScheduleTrigger",
+                "typeProperties": {
+                    "recurrence": {
+                        "frequency": "Minute",
+                        "interval": 5,
+                        "startTime": "2018-02-20T20:37:40.536Z",
+                        "endTime": "2018-02-21T20:37:00Z",
+                        "timeZone": "UTC"
+                    }
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/pipelines/CopyPipeline')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureSqlDatabaseLinkedService')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "type": "AzureSqlDatabase",
+                "typeProperties": {
+                    "connectionString": {
+                        "type": "SecureString",
+                        "value": "[parameters('AzureSqlDatabaseLinkedService_connectionString')]"
+                    }
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/CopyBlobToSQL')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "CopyBlobToSQL",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30
+                        },
+                        "typeProperties": {
+                            "source": {
+                                "type": "BlobSource",
+                                "recursive": true
+                            },
+                            "sink": {
+                                "type": "SqlSink",
+                                "writeBatchSize": 10000
+                            },
+                            "enableStaging": false,
+                            "cloudDataMovementUnits": 0,
+                            "enableSkipIncompatibleRow": true,
+                            "translator": {
+                                "type": "TabularTranslator",
+                                "columnMappings": "zipcode: ZipCode, place: PlaceName, state: State, state_abbr: StateAbbr, county: County, lat: Latitude, long: Longitude"
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "InputDataset",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "AzureSqlPostalCodes",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ]
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/InputDataset')]",
+                "[concat(variables('factoryId'), '/datasets/AzureSqlPostalCodes')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureSqlPostalCodes')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2017-09-01-preview",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "AzureSqlDatabaseLinkedService",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "AzureSqlTable",
+                "structure": [
+                    {
+                        "name": "ZipCode",
+                        "type": "Int32"
+                    },
+                    {
+                        "name": "PlaceName",
+                        "type": "String"
+                    },
+                    {
+                        "name": "State",
+                        "type": "String"
+                    },
+                    {
+                        "name": "StateAbbr",
+                        "type": "String"
+                    },
+                    {
+                        "name": "County",
+                        "type": "String"
+                    },
+                    {
+                        "name": "Latitude",
+                        "type": "Decimal"
+                    },
+                    {
+                        "name": "Longitude",
+                        "type": "Decimal"
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[concat(variables('leftBracket'), 'dbo].[postal_codes]')]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabaseLinkedService')]"
+            ]
+        }
+    ]
+}
